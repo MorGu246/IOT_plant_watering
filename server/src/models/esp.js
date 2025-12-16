@@ -10,15 +10,21 @@ class Esp{
         let sql = "SELECT * FROM sensors WHERE sensor_name = ?;";
         return await this.db.execute(sql, [name]);
     }
-    async readAvgDateQu(date){
+    async readAvgDateQu(date){///////////////////////////////////////
         let sql = "SELECT * FROM sensors WHERE sensor_date = ?;";
         return await this.db.execute(sql, [date]);
     }
-    async readAvgDateQu2(name, date){
+    async readAvgDateQu2(name, date){/////////////////////////////////////
         let sql = "SELECT AVG(value) AS avg FROM samples WHERE name = ? AND DATE(sample_date) = ?";
         let [rows] = await db.execute(query, [name, date]);
         return rows[0]; // מחזיר ממוצע אחד
     };
+    async readAvgByNameAndDate(name, date) {
+    const sql = "SELECT AVG(value) AS avg_value, COUNT(*) AS total_samples FROM samples WHERE name = ? AND DATE(sample_date) = ?";
+    const [rows] = await this.db.execute(sql, [name, date]);
+    return rows[0]; // מחזיר ממוצע + כמות בדיקות
+}
+
     async readAvgPotQu(potId){
         let sql = "SELECT * FROM sensors WHERE  pot_id = ?;";
         return await this.db.execute(sql, [potId]);
