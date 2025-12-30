@@ -25,7 +25,7 @@ const readAvgDate = async (req,res) => {
     try{
         const {name,date}=req.body;
         //SELECT AVG(Price)
-        let data = await esp.readAvgDateQu(name,date);
+        let data = await esp.readAvgDateQu(name,date); // לא טוב כי אמור להיות רק date בלי name
         console.log(data);
         return(res.status(201).json(data));
     } catch (error){
@@ -65,7 +65,7 @@ const readAvgPot = async (req,res) => {
         if((name!="temp" && val<=0) || (name=="" || id_pot<0)){
             return res.status(401).json({message:"one or more of the parameters are missing or wrong."});
         }
-        let data = await esp.createAvgSensorQu(name,val,id_pot);
+        let data = await esp.readAvgPotQu(id_pot);
         console.log(data);
         return(res.status(201).json({message:"the check has been saved successfully."}));
     } catch (error){
@@ -79,8 +79,13 @@ const deleteAvgSensor = async (req,res) => {
         if(!id_pot || id_pot <= 0){
             return res.status(400).json({message:"pot does not exist"});
         }
-        let data = await esp.deleteAvgSensorQu(id_pot);
+        /*let data = await esp.deleteAvgPotQu(id_pot);
         if (data.affectedRows === 0) {
+            return res.status(404).json({ message: "pot not found" });
+        }*/
+        let [result] = await esp.deleteAvgPotQu(id_pot);
+
+        if (result.affectedRows === 0) {
             return res.status(404).json({ message: "pot not found" });
         }
         console.log(data);
