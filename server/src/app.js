@@ -5,7 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const routes = require("./routes")
 
-const port = process.env.pory || 3671;
+const port = process.env.port || 3671;
 const app = express();
 
 app.use(express.static(path.join(__dirname,"../public"))); // סטטיק זה שנוכל לגשת לתיקייה או קובץ מכל מקום בקוד מבלי לנתב אליו
