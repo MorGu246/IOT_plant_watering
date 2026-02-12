@@ -13,7 +13,10 @@
 DHT dht(DHT_PIN, DHTTYPE);  //עבור חיישן טמפרטורה
 #define LDRPin 36
 #define Humidity 39
-unsigned long timeOfSend=millis();
+//unsigned long timeOfSend=millis();
+
+bool manualRequestFromUser = false; // האם המשתמש לחץ על כפתור השקיה באפליקציה
+bool forceStart = false;            // האם המשתמש אישר השקיה למרות השמש
 
 unsigned long timeOfSendOn = 0;
 unsigned long timeOfSendOff = 0;
@@ -25,6 +28,13 @@ bool my_manual = false;
 // int ShabatOff;
 int curCase = 1;
 const int id_pot = 1001;
+
+// פונקציה לשליחת סטטוס (מתקן את השגיאה שקיבלת)
+void sendMqttStatus(String message) {
+  Serial.print("MQTT Status Update: ");
+  Serial.println(message);
+  // כאן תוסיף בעתיד: client.publish("pot/status", message.c_str());
+}
 
 String buildJson(String sensor, float val){
   JsonDocument doc;
@@ -51,12 +61,12 @@ void setup() {
   pinMode(motor_B1B, OUTPUT);
   sendJson(buildJson("temp",23.23));
   //sendJson(buildJson("hum",hum));
+  digitalWrite(motor_B1A, LOW);
+  digitalWrite(motor_B1B, LOW);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-digitalWrite(motor_B1A, LOW);
-digitalWrite(motor_B1B, LOW);
 float temp = dht.readTemperature();
 float humidity = dht.readHumidity();
 float humSoil = analogRead(Humidity);
@@ -75,25 +85,40 @@ curCase=1;
       case 2: // Soil Moisture Mode
         manageSoilMode(humSoil, (int)light);
         break;
-      case 3: // Manual Mode
+      //case 3: // Manual Mode
         // // כאן הלוגיקה תלויה בהודעות MQTT שמשנות את my_manual
         // if(my_manual && (light < 700)) {
         //     digitalWrite(motor_B1A, HIGH);
         // } else {
         //     digitalWrite(motor_B1A, LOW);
         // }
-        if (manualRequestFromUser) { 
-            if (light > 700 && !forceStart) { 
-                // sendMqttStatus("WARNING_HIGH_LIGHT"); 
-                stopMotor(); 
-            } else {
-                startMotor();
+        // if (manualRequestFromUser) { 
+        //     if (light > 700 && !forceStart) { 
+        //         // sendMqttStatus("WARNING_HIGH_LIGHT"); 
+        //         stopMotor(); 
+        //     } else {
+        //         startMotor();
+        //     }
+        // } else {
+        //     stopMotor();
+        //     forceStart = false; 
+        // }
+        // break;
+          case 3: // Manual Mode
+            if (manualRequestFromUser) { // משתנה שמתעדכן מה-MQTT
+              if (light > 700 && !forceStart) { 
+            // כאן אתה שולח הודעה חזרה ל-MQTT/VS Code: "Warning: High light!"
+            // ורק אם המשתמש לוחץ "אישור" (שמעדכן את forceStart ל-true) המנוע יפעל
+              sendMqttStatus("WARNING_HIGH_LIGHT");
+              stopMotor(); 
+          } else {
+              startMotor();
             }
-        } else {
+          } else {
             stopMotor();
-            forceStart = false; 
+            forceStart = false; // איפוס האישור המיוחד
         }
-        break;
+      break;
       case 4: // Scheduled Mode
         // שימוש ב-NTPClient לבדיקת שעה מדויקת
         break;
@@ -268,18 +293,3 @@ void manageSoilMode(int humSoil, int light) {
         stopMotor();
     }
 }
-  case 3: // Manual Mode
-    if (manualRequestFromUser) { // משתנה שמתעדכן מה-MQTT
-        if (light > 700 && !forceStart) { 
-            // כאן אתה שולח הודעה חזרה ל-MQTT/VS Code: "Warning: High light!"
-            // ורק אם המשתמש לוחץ "אישור" (שמעדכן את forceStart ל-true) המנוע יפעל
-            sendMqttStatus("WARNING_HIGH_LIGHT");
-            stopMotor(); 
-        } else {
-            startMotor();
-        }
-    } else {
-        stopMotor();
-        forceStart = false; // איפוס האישור המיוחד
-    }
-    break;
