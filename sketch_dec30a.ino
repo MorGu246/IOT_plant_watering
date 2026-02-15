@@ -29,13 +29,6 @@ bool my_manual = false;
 int curCase = 1;
 const int id_pot = 1001;
 
-// פונקציה לשליחת סטטוס (מתקן את השגיאה שקיבלת)
-void sendMqttStatus(String message) {
-  Serial.print("MQTT Status Update: ");
-  Serial.println(message);
-  // כאן תוסיף בעתיד: client.publish("pot/status", message.c_str());
-}
-
 String buildJson(String sensor, float val){
   JsonDocument doc;
   String json;
@@ -109,7 +102,7 @@ curCase=1;
               if (light > 700 && !forceStart) { 
             // כאן אתה שולח הודעה חזרה ל-MQTT/VS Code: "Warning: High light!"
             // ורק אם המשתמש לוחץ "אישור" (שמעדכן את forceStart ל-true) המנוע יפעל
-              sendMqttStatus("WARNING_HIGH_LIGHT");
+              Serial.println("Warning: High light intensity!");
               stopMotor(); 
           } else {
               startMotor();
@@ -271,6 +264,9 @@ void stopMotor() {
     Serial.print("Motor STOPPED. Irrigation lasted: ");
     Serial.print(durationMinutes);
     Serial.println(" minutes.");
+    String logJson = "{\"potId\":" + String(id_pot) + ",\"duration\":" + String(durationMinutes) + "}";
+    // קריאה לפונקציית ה-HTTP (צריך ליצור אנדפוינט מתאים ב-Routes)
+    sendWaterLog(logJson);
     // כאן תוסיף קריאה לפונקציה ששולחת את durationMinutes לשרת ה-REST/MQTT שלך!
     // sendIrrigationLogToSever(durationMinutes);
   }
