@@ -1,11 +1,10 @@
 #include <ArduinoJson.h>
-//#include <ArduinoJson.hpp>
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <HTTPClient.h>
-
 #include <dummy.h>
 #include <DHT.h>
+
 #define motor_B1A 22
 #define motor_B1B 23
 #define DHTTYPE DHT22       //עבור חיישן טמפרטורה
@@ -13,7 +12,6 @@
 DHT dht(DHT_PIN, DHTTYPE);  //עבור חיישן טמפרטורה
 #define LDRPin 36
 #define Humidity 39
-//unsigned long timeOfSend=millis();
 
 bool manualRequestFromUser = false; // האם המשתמש לחץ על כפתור השקיה באפליקציה
 bool forceStart = false;            // האם המשתמש אישר השקיה למרות השמש
@@ -24,8 +22,6 @@ unsigned long lastSensorSend = 0;
 bool motorOn = false;
 
 bool my_manual = false;
-// int ShabatOn;
-// int ShabatOff;
 int curCase = 1;
 const int id_pot = 1001;
 
@@ -78,36 +74,17 @@ curCase=1;
       case 2: // Soil Moisture Mode
         manageSoilMode(humSoil, (int)light);
         break;
-      //case 3: // Manual Mode
-        // // כאן הלוגיקה תלויה בהודעות MQTT שמשנות את my_manual
-        // if(my_manual && (light < 700)) {
-        //     digitalWrite(motor_B1A, HIGH);
-        // } else {
-        //     digitalWrite(motor_B1A, LOW);
-        // }
-        // if (manualRequestFromUser) { 
-        //     if (light > 700 && !forceStart) { 
-        //         // sendMqttStatus("WARNING_HIGH_LIGHT"); 
-        //         stopMotor(); 
-        //     } else {
-        //         startMotor();
-        //     }
-        // } else {
-        //     stopMotor();
-        //     forceStart = false; 
-        // }
-        // break;
-          case 3: // Manual Mode
-            if (manualRequestFromUser) { // משתנה שמתעדכן מה-MQTT
-              if (light > 700 && !forceStart) { 
+      case 3: // Manual Mode
+        if (manualRequestFromUser) { // משתנה שמתעדכן מה-MQTT
+          if (light > 700 && !forceStart) { 
             // כאן אתה שולח הודעה חזרה ל-MQTT/VS Code: "Warning: High light!"
             // ורק אם המשתמש לוחץ "אישור" (שמעדכן את forceStart ל-true) המנוע יפעל
-              Serial.println("Warning: High light intensity!");
-              stopMotor(); 
+            Serial.println("Warning: High light intensity!");
+            stopMotor(); 
           } else {
-              startMotor();
+            startMotor();
             }
-          } else {
+        } else {
             stopMotor();
             forceStart = false; // איפוס האישור המיוחד
         }
@@ -116,114 +93,6 @@ curCase=1;
         // שימוש ב-NTPClient לבדיקת שעה מדויקת
         break;
     }
-  
-  // case 1:
-  // //timeOfSend=millis();
-  //   if(temp<26){ // טמפרטורה לא גבוהה
-  //     if(!motorOn && millis() - timeOfSendOff >= 7200000){ //2 שעות עובד
-  //       if(light<700){
-  //         digitalWrite(motor_B1A, HIGH);
-  //         digitalWrite(motor_B1B, LOW);
-  //         motorOn = true;
-  //         timeOfSendOn = millis();
-  //         sendJson(buildJson("temp",temp));//<== לשלוח ערך חיישן טמפרטורה
-  //       }
-  //     }
-  //     if(motorOn && millis() - timeOfSendOn >= 36000000){ //10 שעות לא עובד
-  //         digitalWrite(motor_B1A, LOW);
-  //         digitalWrite(motor_B1B, LOW);
-  //         motorOn = false;
-  //         timeOfSendOff = millis();
-  //         sendJson(buildJson("temp",temp));//<== לשלוח ערך חיישן טמפרטורה
-  //       }
-  //     }
-  //     if(temp>=26){ //טמפרטורה גבוהה
-  //     if(!motorOn && millis() - timeOfSendOff >= 10800000){ //3 שעות עובד
-  //       if(light<700){
-  //         digitalWrite(motor_B1A, HIGH);
-  //         digitalWrite(motor_B1B, LOW);
-  //         motorOn = true;
-  //         timeOfSendOn = millis();
-  //         sendJson(buildJson("temp",temp));//<== לשלוח ערך חיישן טמפרטורה
-  //       }
-  //     }
-  //     if(motorOn && millis() - timeOfSendOn >= 10800000){ //3 שעות לא עובד
-  //         digitalWrite(motor_B1A, LOW);
-  //         digitalWrite(motor_B1B, LOW);
-  //         motorOn = false;
-  //         timeOfSendOff = millis();
-  //         sendJson(buildJson("temp",temp));//<== לשלוח ערך חיישן טמפרטורה
-  //       }
-  //     }
-  //   break;
-  // case 2:
-  // timeOfSend=millis();
-  //   if(hum>60){ // לחות גבוהה
-  //         if(millis()-timeOfSend >= 7200000){ //2 שעות עובד
-  //           if(light<700){
-  //             digitalWrite(motor_B1A, HIGH);
-  //             digitalWrite(motor_B1B, LOW);
-  //             timeOfSend=millis();
-  //           }
-  //         }
-  //         if(millis()-timeOfSend >= 36000000){ //10 שעות לא עובד
-  //             digitalWrite(motor_B1A, LOW);
-  //             digitalWrite(motor_B1B, LOW);
-  //             timeOfSend=millis();
-  //           }
-  //         }
-  //   if(hum<60){ // לחות לא גבוהה
-  //         if(millis()-timeOfSend >= 10800000){ //3 שעות עובד
-  //           if(light<700){
-  //             digitalWrite(motor_B1A, HIGH);
-  //             digitalWrite(motor_B1B, LOW);
-  //             timeOfSend=millis();
-  //           }
-  //         }
-  //         if(millis()-timeOfSend >= 32400000){ //9 שעות לא עובד
-  //             digitalWrite(motor_B1A, LOW);
-  //             digitalWrite(motor_B1B, LOW);
-  //             timeOfSend=millis();
-  //           }
-  //         }
-  //   break;
-  // case 3:
-  //   if(light>700){
-  //     Serial.print(" Not a good idea, the water will evaporize ");
-  //     if(my_manual){
-  //       digitalWrite(motor_B1A, HIGH);
-  //       digitalWrite(motor_B1B, LOW);
-  //     }
-  //     else{
-  //       digitalWrite(motor_B1A, LOW);
-  //       digitalWrite(motor_B1B, LOW);
-  //     }
-  //   }
-  //   break;
-  // case 4:
-  //   // digitalWrite(motor_B1A, HIGH);
-  //   // digitalWrite(motor_B1B, LOW);
-  //   // delay(1000);
-  //   // digitalWrite(motor_B1A, LOW);
-  //   // digitalWrite(motor_B1B, LOW);
-  //   // delay(2000);
-  //   timeOfSend=millis();
-  //   if(temp<26){ // טמפרטורה לא גבוהה
-  //     if(millis()-timeOfSend >= ShabatOn){ //2 שעות עובד
-  //       if(light<700){
-  //         digitalWrite(motor_B1A, HIGH);
-  //         digitalWrite(motor_B1B, LOW);
-  //         timeOfSend=millis();
-  //       }
-  //     }
-  //     if(millis()-timeOfSend >= ShabatOff){ //10 שעות לא עובד
-  //         digitalWrite(motor_B1A, LOW);
-  //         digitalWrite(motor_B1B, LOW);
-  //         timeOfSend=millis();
-  //       }
-  //     }
-  // }
-  //long waterAmount=0;
 }
 void manageWeatherMode(float temp, int light) {
     // הגדרת זמנים לפי טמפרטורה (מעל 26 = קיץ, מתחת = חורף)
