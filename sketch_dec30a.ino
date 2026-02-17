@@ -2,8 +2,12 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <HTTPClient.h>
+#include <PubSubClient.h>
 #include <dummy.h>
 #include <DHT.h>
+
+extern PubSubClient mqttClient; // השורה שפותרת את השגיאה
+void reconnectMQTT();           // הצהרה על הפונקציה שנמצאת בקובץ השני
 
 #define motor_B1A 22
 #define motor_B1B 23
@@ -45,6 +49,7 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   wifi_Setup();
+  reconnectMQTT();
   dht.begin();
   pinMode(motor_B1A, OUTPUT);
   pinMode(motor_B1B, OUTPUT);
@@ -62,11 +67,18 @@ float humSoil = analogRead(Humidity);
 float light = map(analogRead(LDRPin), 0, 4095, 0, 1024);
 // sendJson(buildJson("hum",hum));
 // delay(21600000);
-if (millis() - lastSensorSend > 3600000) { 
+if (millis() - lastSensorSend > 21600000L) { 
       sendJson(buildJson("temp", temp));
+      delay(100); // הפסקה קצרה בין שליחות
+      sendJson(buildJson("soil_hum", humSoil));
+      delay(100);
+      sendJson(buildJson("light", light));
       lastSensorSend = millis();
   }
-curCase=1;
+  if (!mqttClient.connected()) {
+    reconnectMQTT();
+  }
+  mqttClient.loop(); // קריטי! זה מה שבודק אם הגיעו הודעות
   switch(curCase) {
       case 1: // Weather Mode
         manageWeatherMode(temp, (int)light);
@@ -90,7 +102,7 @@ curCase=1;
         }
       break;
       case 4: // Scheduled Mode
-        // שימוש ב-NTPClient לבדיקת שעה מדויקת
+        manageScheduledMode();
         break;
     }
 }
@@ -155,6 +167,21 @@ void manageSoilMode(int humSoil, int light) {
     // הערה: במטלה לא ביקשו לכבות בגלל אור באמצע השקיית לחות, 
     // אבל זה מומלץ כדי לחסוך במים (הגנה על המערכת).
     else if (motorOn && (humSoil > WET_THRESHOLD || light > LIGHT_LIMIT)) {
+        stopMotor();
+    }
+}
+void manageScheduledMode() {
+    // הגדרת זמנים קבועים (למשל: השקיה של 5 דקות כל 12 שעות)
+    const unsigned long intervalOn = 300000L;    // 5 דקות במילישניות
+    const unsigned long intervalOff = 43200000L; // 12 שעות במילישניות
+    // אם המנוע כבוי ועבר זמן המנוחה - תתחיל להשקות (בלי לבדוק אור או לחות!)
+    if (!motorOn && (millis() - timeOfSendOff >= intervalOff)) {
+        Serial.println("Scheduled Mode: Starting periodic watering...");
+        startMotor();
+    } 
+    // אם המנוע פועל ועבר זמן ההשקיה - תפסיק
+    else if (motorOn && (millis() - timeOfSendOn >= intervalOn)) {
+        Serial.println("Scheduled Mode: Finishing periodic watering...");
         stopMotor();
     }
 }
