@@ -85,17 +85,23 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     if (message == "STOP") manualRequestFromUser = false;
     if (message == "FORCE_ON") forceStart = true;
   }
+  Serial.print("DEBUG: Received something on topic: ");
+  Serial.println(topic);
 }
 // בתוך ה-setup או פונקציית התחברות ל-MQTT, אל תשכח:
 void reconnectMQTT() {
   while (!mqttClient.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    if (mqttClient.connect("ESP32_Pot_1001")) {
-      Serial.println("connected");
-      // הרשמה לנושאים הרלוונטיים
+    Serial.print("Attempting MQTT connection to ");
+    Serial.print(mqtt_server);
+    // ניסיון התחברות עם שם לקוח ייחודי
+    if (mqttClient.connect("ESP32_Pot_1001")) { 
+      Serial.println("...connected!");
       mqttClient.subscribe("pot/1001/mode");
       mqttClient.subscribe("pot/1001/command");
     } else {
+      Serial.print("...failed, rc=");
+      Serial.print(mqttClient.state()); // זה ידפיס לנו מספר (למשל 2- או 5-)
+      Serial.println(" try again in 5 seconds");
       delay(5000);
     }
   }
