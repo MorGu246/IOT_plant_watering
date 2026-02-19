@@ -35,6 +35,29 @@ const updatePotMode = async (req, res) => {
     }
 };
 
+// מטפל בנתיב: POST /esp/send-command
+const sendCommand = async (req, res) => {
+    try {
+        const { potId, command } = req.body; // command יהיה "START" או "STOP"
+        if (!potId || !command) {
+            return res.status(400).json({ message: "potId and command are required" });
+        }
+        const topic = `pot/${potId}/command`;
+        // שליחת ההודעה ב-MQTT
+        mqttClient.publish(topic, command, { qos: 1 }, (err) => {
+            if (err) {
+                console.error("MQTT Publish Error (Command):", err);
+                return res.status(500).json({ message: "Failed to send command via MQTT" });
+            }
+            console.log(`Sent manual command ${command} to pot ${potId}`);
+            return res.status(200).json({ message: `Command ${command} sent successfully` });
+        });
+    } catch (error) {
+        console.error("Error in sendCommand:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
 // const sensors = [
 //     {name:"temp",val:[200,1000,555,345]},{},{}
 // ];
@@ -180,4 +203,4 @@ const testDatabaseConnection = async () => {
 
 // הפעלת הבדיקה (תוריד את זה אחרי שראית שזה עובד)
 //testDatabaseConnection();
-module.exports = {createAVGsensors, readAvgDate2, deletePot, logIrrigation, getPotDetails,updatePotMode};
+module.exports = {createAVGsensors, readAvgDate2, deletePot, logIrrigation, getPotDetails, updatePotMode, sendCommand};

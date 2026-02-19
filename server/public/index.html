@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>מערכת השקיה חכמה</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f4f4f4; }
+        .container { width: 80%; margin: auto; background: white; padding: 20px; border-radius: 10px; shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .btn { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; border: none; border-radius: 5px; }
+        .on { background: #28a745; color: white; }
+        .off { background: #dc3545; color: white; }
+        .mode-btn { background: #007bff; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>העציץ החכם שלי - דשבורד</h1>
+        <div id="controls">
+            <h3>שליטה במצבים</h3>
+            <button class="mode-btn" onclick="changeMode(1)">מצב מזג אוויר</button>
+            <button class="mode-btn" onclick="changeMode(2)">מצב לחות אדמה</button>
+            <button class="mode-btn" onclick="changeMode(3)">מצב ידני</button>
+            <button class="mode-btn" style="background: #6f42c1;" onclick="changeMode(4)">מצב שבת (מתוזמן)</button>
+        </div>
+        <div id="manual-actions" style="margin-top: 20px;">
+            <h3>פעולות ידניות</h3>
+            <button class="btn on" onclick="sendCommand('START')">הפעל השקיה</button>
+            <button class="btn off" onclick="sendCommand('STOP')">עצור השקיה</button>
+        </div>
+        <div style="width: 100%; margin-top: 30px;">
+            <canvas id="tempChart"></canvas>
+        </div>
+    </div>
+    <script>
+        async function changeMode(mode) {
+            await fetch('/esp/change-mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ potId: 1001, mode: mode })
+            });
+            alert("המצב שונה ל-" + mode);
+        }
+        async function sendCommand(cmd) {
+            console.log("Sending to server:", cmd);
+            try {
+                const response = await fetch('/esp/send-command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ potId: 1001, command: cmd })
+                });
+                const data = await response.json();
+                console.log("Server response:", data);
+            } catch (error) {
+                console.error("Error sending command:", error);
+            }
+        }
+        // פונקציה למשיכת נתונים לגרף
+        async function loadChartData() {
+            const today = new Date().toISOString().slice(0, 10);
+            const response = await fetch('/esp/analytics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'temp', date: today })
+            });
+            const data = await response.json();
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [data.date],
+                    datasets: [{
+                        label: 'ממוצע טמפרטורה יומי',
+                        data: [data.average],
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }]
+                }
+            });
+        }
+        loadChartData();
+    </script>
+</body>
+</html>
