@@ -1,3 +1,4 @@
+// שם מלא: מור גואטה ת.ז.: 314813379
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
@@ -6,19 +7,19 @@
 #include <dummy.h>
 #include <DHT.h>
 
-extern PubSubClient mqttClient; // השורה שפותרת את השגיאה
-void reconnectMQTT();           // הצהרה על הפונקציה שנמצאת בקובץ השני
+extern PubSubClient mqttClient;
+void reconnectMQTT();
 
 #define motor_B1A 22
 #define motor_B1B 23
-#define DHTTYPE DHT22       //עבור חיישן טמפרטורה
-#define DHT_PIN 16          //עבור חיישן טמפרטורה
-DHT dht(DHT_PIN, DHTTYPE);  //עבור חיישן טמפרטורה
+#define DHTTYPE DHT22
+#define DHT_PIN 16
+DHT dht(DHT_PIN, DHTTYPE);
 #define LDRPin 36
 #define Humidity 39
 
-bool manualRequestFromUser = false; // האם המשתמש לחץ על כפתור השקיה באפליקציה
-bool forceStart = false;            // האם המשתמש אישר השקיה למרות השמש
+bool manualRequestFromUser = false;
+bool forceStart = false;
 
 unsigned long timeOfSendOn = 0;
 unsigned long timeOfSendOff = 0;
@@ -39,7 +40,6 @@ String buildJson(String sensor, float val){
   return json;
 }
 
-// הצהרה על פונקציות (כדי שה-Compiler יכיר אותן)
 void startMotor();
 void stopMotor();
 void manageWeatherMode(float temp, int light);
@@ -49,12 +49,12 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   wifi_Setup();
+  delay(2000);
   reconnectMQTT();
   dht.begin();
   pinMode(motor_B1A, OUTPUT);
   pinMode(motor_B1B, OUTPUT);
   sendJson(buildJson("temp",23.23));
-  //sendJson(buildJson("hum",hum));
   digitalWrite(motor_B1A, LOW);
   digitalWrite(motor_B1B, LOW);
 }
@@ -65,11 +65,9 @@ float temp = dht.readTemperature();
 float humidity = dht.readHumidity();
 float humSoil = analogRead(Humidity);
 float light = map(analogRead(LDRPin), 0, 4095, 0, 1024);
-// sendJson(buildJson("hum",hum));
-// delay(21600000);
 if (millis() - lastSensorSend > 21600000L) { 
       sendJson(buildJson("temp", temp));
-      delay(100); // הפסקה קצרה בין שליחות
+      delay(100);
       sendJson(buildJson("soil_hum", humSoil));
       delay(100);
       sendJson(buildJson("light", light));
@@ -78,7 +76,7 @@ if (millis() - lastSensorSend > 21600000L) {
   if (!mqttClient.connected()) {
     reconnectMQTT();
   }
-  mqttClient.loop(); // קריטי! זה מה שבודק אם הגיעו הודעות
+  mqttClient.loop();
   switch(curCase) {
       case 1: // Weather Mode
         manageWeatherMode(temp, (int)light);
@@ -87,10 +85,8 @@ if (millis() - lastSensorSend > 21600000L) {
         manageSoilMode(humSoil, (int)light);
         break;
       case 3: // Manual Mode
-        if (manualRequestFromUser) { // משתנה שמתעדכן מה-MQTT
+        if (manualRequestFromUser) {
           if (light > 700 && !forceStart) { 
-            // כאן אתה שולח הודעה חזרה ל-MQTT/VS Code: "Warning: High light!"
-            // ורק אם המשתמש לוחץ "אישור" (שמעדכן את forceStart ל-true) המנוע יפעל
             Serial.println("Warning: High light intensity!");
             stopMotor(); 
           } else {
@@ -98,7 +94,7 @@ if (millis() - lastSensorSend > 21600000L) {
             }
         } else {
             stopMotor();
-            forceStart = false; // איפוס האישור המיוחד
+            forceStart = false;
         }
       break;
       case 4: // Scheduled Mode
@@ -107,19 +103,13 @@ if (millis() - lastSensorSend > 21600000L) {
     }
 }
 void manageWeatherMode(float temp, int light) {
-    // הגדרת זמנים לפי טמפרטורה (מעל 26 = קיץ, מתחת = חורף)
-    unsigned long intervalOn = (temp >= 26) ? 10800000 : 7200000; // 3 שעות בקיץ, שעתיים בחורף
-    // חישוב זמן מנוחה כדי להגיע בדיוק למספר הפעמים ביום:
-    // קיץ: 3 שעות עבודה + 5 שעות מנוחה = מחזור של 8 שעות -> 3 פעמים ביממה.
-    // חורף: שעתיים עבודה + 10 שעות מנוחה = מחזור של 12 שעות -> פעמיים ביממה.
+    unsigned long intervalOn = (temp >= 26) ? 10800000 : 7200000;
     unsigned long intervalOff = (temp >= 26) ? 18000000 : 36000000; 
-    // אם המנוע כבוי ועבר זמן המנוחה הדרוש
     if (!motorOn && (millis() - timeOfSendOff >= intervalOff)) {
-        if (light < 700) { // הגנת אור חזק
+        if (light < 700) {
             startMotor();
         }
     } 
-    // אם המנוע פועל ועבר זמן ההשקיה הנדרש
     else if (motorOn && (millis() - timeOfSendOn >= intervalOn)) {
         stopMotor();
     }
@@ -129,7 +119,7 @@ void startMotor() {
     digitalWrite(motor_B1A, HIGH);
     digitalWrite(motor_B1B, LOW);
     motorOn = true;
-    timeOfSendOn = millis(); // שומרים מתי התחלנו
+    timeOfSendOn = millis();
     Serial.println("Motor STARTED");
   }
 }
@@ -138,25 +128,20 @@ void stopMotor() {
     digitalWrite(motor_B1A, LOW);
     digitalWrite(motor_B1B, LOW);
     motorOn = false;
-    timeOfSendOff = millis(); // שומרים מתי סיימנו
-    // כאן אנחנו מחשבים את משך ההשקיה בפועל עבור הדרישה של "לוג השקיות"
+    timeOfSendOff = millis();
     unsigned long durationMs = timeOfSendOff - timeOfSendOn;
     float durationMinutes = durationMs / 60000.0;
     Serial.print("Motor STOPPED. Irrigation lasted: ");
     Serial.print(durationMinutes);
     Serial.println(" minutes.");
     String logJson = "{\"potId\":" + String(id_pot) + ",\"duration\":" + String(durationMinutes) + "}";
-    // קריאה לפונקציית ה-HTTP (צריך ליצור אנדפוינט מתאים ב-Routes)
     sendWaterLog(logJson);
-    // כאן תוסיף קריאה לפונקציה ששולחת את durationMinutes לשרת ה-REST/MQTT שלך!
-    // sendIrrigationLogToSever(durationMinutes);
   }
 }
 void manageSoilMode(int humSoil, int light) {
-    // הגדרת ספים (כויל לפי הבדיקה שעשית עם האצבעות)
-    const int DRY_THRESHOLD = 800;   // מתחת לזה האדמה יבשה - צריך להשקות
-    const int WET_THRESHOLD = 2500;  // מעל זה האדמה רטובה - אפשר להפסיק
-    const int LIGHT_LIMIT = 700;     // סף האור להגנה
+    const int DRY_THRESHOLD = 800;
+    const int WET_THRESHOLD = 2500;
+    const int LIGHT_LIMIT = 700;
     // 1. תנאי הפעלה: אדמה יבשה וגם אין שמש חזקה
     if (!motorOn && (humSoil < DRY_THRESHOLD)) {
         if (light < LIGHT_LIMIT) {
@@ -164,22 +149,17 @@ void manageSoilMode(int humSoil, int light) {
         }
     }
     // 2. תנאי כיבוי: האדמה נהייתה רטובה מספיק
-    // הערה: במטלה לא ביקשו לכבות בגלל אור באמצע השקיית לחות, 
-    // אבל זה מומלץ כדי לחסוך במים (הגנה על המערכת).
     else if (motorOn && (humSoil > WET_THRESHOLD || light > LIGHT_LIMIT)) {
         stopMotor();
     }
 }
 void manageScheduledMode() {
-    // הגדרת זמנים קבועים (למשל: השקיה של 5 דקות כל 12 שעות)
-    const unsigned long intervalOn = 300000L;    // 5 דקות במילישניות
-    const unsigned long intervalOff = 43200000L; // 12 שעות במילישניות
-    // אם המנוע כבוי ועבר זמן המנוחה - תתחיל להשקות (בלי לבדוק אור או לחות!)
+    const unsigned long intervalOn = 300000L;
+    const unsigned long intervalOff = 43200000L;
     if (!motorOn && (millis() - timeOfSendOff >= intervalOff)) {
         Serial.println("Scheduled Mode: Starting periodic watering...");
         startMotor();
-    } 
-    // אם המנוע פועל ועבר זמן ההשקיה - תפסיק
+    }
     else if (motorOn && (millis() - timeOfSendOn >= intervalOn)) {
         Serial.println("Scheduled Mode: Finishing periodic watering...");
         stopMotor();
