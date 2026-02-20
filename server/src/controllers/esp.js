@@ -1,25 +1,23 @@
+// שם מלא: מור גואטה ת.ז.: 314813379
 const pool = require('../models/db');
 const Esp = require('../models/esp');
 const mqtt = require('mqtt');
 
 const esp = new Esp(pool);
 
-// התחברות ל-Broker (המחשב שלך או שרת מרוחק)
-const mqttClient = mqtt.connect('mqtt://10.0.0.5'); //10.9.25.238
+const mqttClient = mqtt.connect('mqtt://10.0.0.5');
 
 mqttClient.on('connect', () => {
     console.log("Connected to MQTT Broker");
 });
 
 // --- פונקציה חדשה לשליחת פקודות ל-ESP32 ---
-// מטפל בנתיב: POST /esp/change-mode
 const updatePotMode = async (req, res) => {
     try {
         const { potId, mode } = req.body;
         if (!potId || mode === undefined) {
             return res.status(400).json({ message: "potId and mode are required" });
         }
-        // שליחת ההודעה לארדואינו דרך MQTT
         const topic = `pot/${potId}/mode`;
         mqttClient.publish(topic, mode.toString(), { qos: 1 }, (err) => {
             if (err) {
@@ -35,15 +33,13 @@ const updatePotMode = async (req, res) => {
     }
 };
 
-// מטפל בנתיב: POST /esp/send-command
 const sendCommand = async (req, res) => {
     try {
-        const { potId, command } = req.body; // command יהיה "START" או "STOP"
+        const { potId, command } = req.body;
         if (!potId || !command) {
             return res.status(400).json({ message: "potId and command are required" });
         }
         const topic = `pot/${potId}/command`;
-        // שליחת ההודעה ב-MQTT
         mqttClient.publish(topic, command, { qos: 1 }, (err) => {
             if (err) {
                 console.error("MQTT Publish Error (Command):", err);
@@ -58,45 +54,25 @@ const sendCommand = async (req, res) => {
     }
 };
 
-// const sensors = [
-//     {name:"temp",val:[200,1000,555,345]},{},{}
-// ];
-function sendJsonToServer(name, avg, potId) {
-  console.log({
-    name,
-    avg,
-    potId
-  });
-}
-
-sendJsonToServer("temp", 25.5, 1001);
 //  * 1. קבלת נתונים מה-ESP32 ושמירתם
-//  * מטפל בנתיב: POST /esp/create
 const createAVGsensors = async (req, res) => {
     try {
         const { name, avg, potId } = req.body;
-        // בדיקת תקינות בסיסית
         if (!name || avg === undefined || !potId) {
             return res.status(400).json({ message: "Missing parameters: name, avg, or potId" });
         }
-        // --- ניהול שלמות הנתונים (Foreign Keys) ---
-        // א. בדיקה אם העציץ (Pot) קיים
         const [pots] = await pool.execute("SELECT * FROM pots WHERE id = ?", [potId]);
         if (pots.length === 0) {
             console.log(`Pot ${potId} not found. Creating it now...`);
-            // ב. בדיקה אם קיים סוג צמח ברירת מחדל (Species id=1)
             const [species] = await pool.execute("SELECT * FROM species WHERE id = ?", [1]);
             if (species.length === 0) {
                 await pool.execute("INSERT INTO species (id, type, list) VALUES (1, 'General', 'Default species')");
             }
-            // ג. יצירת העציץ החדש
             await pool.execute(
                 "INSERT INTO pots (id, type_id, date, name, status) VALUES (?, 1, NOW(), ?, 'active')",
                 [potId, `Pot ${potId}`]
             );
         }
-        // --- שמירת הנתון בטבלת sensors ---
-        // משתמשים בפונקציה מה-Model החדש
         await esp.createSensorReading(name, avg, potId);
         console.log(`Saved reading: ${name} = ${avg} for Pot ${potId}`);
         return res.status(201).json({ message: "Data saved successfully" });
@@ -106,7 +82,6 @@ const createAVGsensors = async (req, res) => {
     }
 };
 //  * 2. שליפת ממוצעים עבור הדשבורד (גרפים)
-//  * מטפל בנתיב: POST /esp/analytics
 const readAvgDate2 = async (req, res) => {
     try {
         const { name, date } = req.body; // מצפה לפורמט YYYY-MM-DD
@@ -131,10 +106,8 @@ const readAvgDate2 = async (req, res) => {
 //  * 3. מחיקת עציץ וכל נתוניו (Maintenance)
 const deletePot = async (req, res) => {
     try {
-        const { id_pot } = req.params; // עדיף לקבל כפרמטר ב-URL
-        // קודם מוחקים את החיישנים (בגלל ה-Foreign Key)
+        const { id_pot } = req.params;
         await esp.deleteSensorsByPot(id_pot);
-        // עכשיו מוחקים את העציץ עצמו
         const [result] = await pool.execute("DELETE FROM pots WHERE id = ?", [id_pot]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Pot not found" });
@@ -146,11 +119,9 @@ const deletePot = async (req, res) => {
     }
 };
 //  * 4. תיעוד השקיה שהתבצעה בפועל
-//  * נקרא מה-ESP32 ברגע שהמנוע עוצר (stopMotor)
-//  * POST /esp/water-log
 const logIrrigation = async (req, res) => {
     try {
-        const { potId, duration } = req.body; // duration זה ה-'count' בטבלה שלך
+        const { potId, duration } = req.body;
         if (!potId || duration === undefined) {
             return res.status(400).json({ message: "potId and duration are required" });
         }
@@ -178,29 +149,20 @@ const getPotDetails = async (req, res) => {
         return res.status(500).json({ message: "Server error" });
     }
 };
-// פונקציית בדיקה עצמית שמכניסה נתון ל-DB ברגע שהשרת עולה
-const testDatabaseConnection = async () => {
+
+const getWeeklyAnalytics = async (req, res) => {
     try {
-        console.log("--- Running DB Test ---");
-        // 1. הכנסת נתונים (כבר עשית)
-        await esp.createSensorReading("temp", 20.0, 1001);
-        await esp.createSensorReading("temp", 24.0, 1001);
-        await esp.createSensorReading("temp", 26.0, 1001);
-        await esp.createSensorReading("temp", 30.0, 1001);
-        // 2. חישוב התאריך של היום בפורמט YYYY-MM-DD
-        const today = new Date().toISOString().slice(0, 10); 
-        // 3. קריאה ישירה ל-MODEL (ולא ל-Controller!)
-        const result = await esp.getAvgByNameAndDate("temp", today);
-        console.log("--- Test Results ---");
-        console.log(`Sensor: temp, Date: ${today}`);
-        console.log(`Average found: ${result.avg_value}`); // אמור להיות 25
-        console.log(`Total samples: ${result.total_samples}`); // אמור להיות 4
-        console.log("Test successful: Data inserted and averaged!");
-    } catch (err) {
-        console.error("Test failed: Could not connect to MySQL", err.message);
+        const { potId } = req.params;
+        const sensorData = await esp.getWeeklySensorStats('temp', potId);
+        const waterData = await esp.getWeeklyWaterStats(potId);
+        return res.status(200).json({
+            sensors: sensorData,
+            water: waterData
+        });
+    } catch (error) {
+        console.error("Error in getWeeklyAnalytics:", error);
+        return res.status(500).json({ message: "Server error" });
     }
 };
 
-// הפעלת הבדיקה (תוריד את זה אחרי שראית שזה עובד)
-//testDatabaseConnection();
-module.exports = {createAVGsensors, readAvgDate2, deletePot, logIrrigation, getPotDetails, updatePotMode, sendCommand};
+module.exports = {createAVGsensors, readAvgDate2, deletePot, logIrrigation, getPotDetails, updatePotMode, sendCommand, getWeeklyAnalytics};

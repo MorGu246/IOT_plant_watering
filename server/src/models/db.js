@@ -1,3 +1,4 @@
+// שם מלא: מור גואטה ת.ז.: 314813379
 const mysql = require('mysql2');
 
 const pool = mysql.createPool({

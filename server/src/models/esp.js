@@ -1,18 +1,15 @@
+// שם מלא: מור גואטה ת.ז.: 314813379
 class Esp {
     constructor(db) {
         this.db = db;
     }
     //  * 1. שמירת נתוני חיישן (טמפרטורה, אור, לחות)
-    //  * טבלה: sensors
     async createSensorReading(name, avg, potId) {
-        // שימוש בפורמט YYYY-MM-DD עבור עמודת ה-date במסד הנתונים
         const date = new Date().toISOString().slice(0, 10);
         let sql = "INSERT INTO sensors (sensor_name, val_avg, date, pot_id) VALUES (?, ?, ?, ?);";
         return await this.db.execute(sql, [name, avg, date, potId]);
     }
     //  * 2. תיעוד השקיה (לוג עבודה של המנוע)
-    //  * טבלה: water_follow
-    //  * count = משך ההשקיה או כמות
     async createWaterLog(potId, count) {
         const now = new Date();
         const date = now.toISOString().slice(0, 10); // YYYY-MM-DD
@@ -21,7 +18,6 @@ class Esp {
         return await this.db.execute(sql, [date, time, count, potId]);
     }
     //  * 3. קבלת פרטי עציץ כולל סוג הצמח שלו (JOIN בין pots ל-species)
-    //  * יחס: species (1) -> pots (N)
     async getPotWithSpecies(potId) {
         let sql = `
             SELECT pots.name, pots.status, species.type, species.list 
@@ -33,9 +29,7 @@ class Esp {
         return rows[0];
     }
     //  * 4. קבלת ממוצע נתונים לפי שם חיישן ותאריך
-    //  * טבלה: sensors
     async getAvgByNameAndDate(name, date) {
-        // שימוש ב-DATE() במידה והעמודה היא DateTime, או השוואה ישירה אם היא Date
         const sql = "SELECT AVG(val_avg) AS avg_value, COUNT(*) AS total_samples FROM sensors WHERE sensor_name = ? AND date = ?";
         const [rows] = await this.db.execute(sql, [name, date]);
         return rows[0];
@@ -45,5 +39,22 @@ class Esp {
         let sql = "DELETE FROM sensors WHERE pot_id = ?;";
         return await this.db.execute(sql, [potId]);
     }
+    // 6. קבלת ממוצעי חיישן ל-7 ימים אחרונים
+    async getWeeklySensorStats(name, potId) {
+        const sql = `
+            SELECT date, AVG(val_avg) AS avg_value FROM sensors 
+            WHERE sensor_name = ? AND pot_id = ? GROUP BY date ORDER BY date ASC LIMIT 7`;
+        const [rows] = await this.db.execute(sql, [name, potId]);
+        return rows;
+    }
+    // 7. קבלת סיכום השקיה ל-7 ימים אחרונים
+    async getWeeklyWaterStats(potId) {
+        const sql = `
+            SELECT date, SUM(count) AS total_count FROM water_follow 
+            WHERE pot = ? GROUP BY date ORDER BY date ASC LIMIT 7`;
+        const [rows] = await this.db.execute(sql, [potId]);
+        return rows;
+    }
 }
+
 module.exports = Esp;
